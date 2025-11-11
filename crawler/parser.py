@@ -73,10 +73,19 @@ class ChangeLogEntry(BaseModel):
 # Parsing
 
 def _get_fingerprint(data: dict) -> str:
+    """
+    Creates a SHA-256 hash of key book data for change detection.
+    """
     data_subset = {
+        "name": data.get("name"),
+        "description": data.get("description"),
+        "category": data.get("category"),
         "price_incl_tax": data.get("price_incl_tax"),
         "price_excl_tax": data.get("price_excl_tax"),
         "availability": data.get("availability"),
+        "num_reviews": data.get("num_reviews"),
+        "image_url": str(data.get("image_url")), # cast HttpUrl to string
+        "rating": data.get("rating"),
     }
     canonical_json = json.dumps(
         data_subset, sort_keys=True
