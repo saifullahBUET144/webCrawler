@@ -31,5 +31,8 @@ async def setup_database_indexes(db: AsyncIOMotorDatabase):
         ("price_incl_tax", 1),
         ("rating", -1)
     ])
+
+    # Collection for change logs with index to quickly find recent changes
+    await db.change_log.create_index([("timestamp", -1)])
     
     log.info("Database indexes are set.")
