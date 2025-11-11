@@ -6,6 +6,8 @@ class Settings(BaseSettings):
     MONGODB_DB_NAME: str = "filerskeepers"
     
     # A comma-separated list of BCRYPT-HASHED API keys
+    VALID_API_KEY_HASHES: str 
+    
     LOG_LEVEL: str = "INFO"
 
     class Config:
