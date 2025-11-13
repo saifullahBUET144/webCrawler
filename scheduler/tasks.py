@@ -4,7 +4,6 @@ from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from parsel import Selector
 from urllib.parse import urljoin
 from datetime import datetime, timezone
-
 from utils.config import settings
 from utils.database import get_database
 from utils.email import send_alert_email 
@@ -44,6 +43,7 @@ async def log_changes(db: AsyncIOMotorDatabase, old_data: dict, new_data: Book):
     check_field("image_url", old_data.get("image_url"), new_data.image_url)
         
     if changes:
+        # This uses the fix from our previous conversation
         log_models = [
             c.model_dump(by_alias=True, exclude={'id'}) for c in changes
         ]

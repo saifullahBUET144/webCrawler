@@ -20,7 +20,7 @@ async def main():
     
     ### For Testing
     # Uncomment the following line to test the job immediately
-    #scheduler.add_job(run_daily_change_detection, "date")
+    scheduler.add_job(run_daily_change_detection, "date")
     
     scheduler.start()
     
