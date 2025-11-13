@@ -466,8 +466,11 @@ class TestSchedulerIntegration:
     """Integration tests for the full scheduler workflow."""
     
     @pytest.mark.asyncio
-    async def test_scheduler_detects_new_book(self, test_db, httpx_mock: HTTPXMock):
-        """Test that scheduler detects and adds new books."""
+    async def test_scheduler_detects_and_logs_new_book(self, test_db, httpx_mock: HTTPXMock, mocker):
+        """Test that scheduler detects and logs new books."""
+        # Mock email sending
+        mock_send_alert = mocker.patch("scheduler.tasks.send_alert_email")
+
         # Mock list page with one book
         httpx_mock.add_response(
             url="https://books.toscrape.com/index.html",
@@ -489,6 +492,18 @@ class TestSchedulerIntegration:
         book = await test_db.books.find_one({"upc": "test-upc-123"})
         assert book is not None
         assert book["name"] == "Test Book"
+        
+        # Verify the new book was logged as a change
+        change_log = await test_db.change_log.find_one(
+            {"book_upc": "test-upc-123"}
+        )
+        assert change_log is not None
+        assert change_log["field_changed"] == "book_status"
+        assert change_log["new_value"] == "added"
+        assert isinstance(change_log["timestamp"], datetime) # Check type
+        
+        # Verify email was sent
+        mock_send_alert.assert_called_once()
     
 
     @pytest.mark.asyncio
@@ -530,6 +545,7 @@ class TestSchedulerIntegration:
         # Verify change was logged
         changes = await test_db.change_log.find({"book_upc": "test-upc-123"}).to_list(None)
         assert len(changes) > 0
+        assert isinstance(changes[0]["timestamp"], datetime)
         
         # Verify email was sent
         mock_send_alert.assert_called_once()
@@ -604,7 +620,8 @@ class TestSchedulerEdgeCases:
             "source_url": "https://books.toscrape.com/catalogue/missing_999/index.html",
             "data_fingerprint": "abc123",
             "crawl_status": "successful",
-            "raw_html_snapshot": ""
+            "raw_html_snapshot": "",
+            "crawl_timestamp": datetime.utcnow()
         }
         await test_db.books.insert_one(book_data)
         
