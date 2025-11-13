@@ -3,9 +3,11 @@ import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from parsel import Selector
 from urllib.parse import urljoin
+from datetime import datetime 
 
 from utils.config import settings
 from utils.database import get_database
+from utils.email import send_alert_email 
 
 from crawler.spider import Spider
 from crawler.parser import (
@@ -17,6 +19,9 @@ log = logging.getLogger(__name__)
 
 
 async def log_changes(db: AsyncIOMotorDatabase, old_data: dict, new_data: Book):
+    """
+    Logs the differences between an old book record and a new one.
+    """
     changes = []
     
     def check_field(field_name, old_val, new_val):
@@ -43,9 +48,10 @@ async def log_changes(db: AsyncIOMotorDatabase, old_data: dict, new_data: Book):
         await db.change_log.insert_many(log_models)
         log.info(f"Logged {len(changes)} changes for UPC {new_data.upc}.")
 
-async def check_book_update(spider: Spider, db: AsyncIOMotorDatabase, old_book: dict):
+async def check_book_update(spider: Spider, db: AsyncIOMotorDatabase, old_book: dict) -> bool:
     """
     Worker task to fetch, parse, and update a single existing book.
+    Returns True if a change was detected, False otherwise.
     """
     try:
         response = await spider.fetch_page(old_book["source_url"])
@@ -53,7 +59,7 @@ async def check_book_update(spider: Spider, db: AsyncIOMotorDatabase, old_book: 
         
         if not new_book:
             log.warning(f"Failed to parse {old_book['source_url']}, skipping update.")
-            return # Exit this task
+            return False # Return False: no change
         
         if new_book.data_fingerprint != old_book["data_fingerprint"]:
             log.warning(f"Change detected for UPC: {old_book['upc']}")
@@ -78,9 +84,13 @@ async def check_book_update(spider: Spider, db: AsyncIOMotorDatabase, old_book: 
                     "crawl_status": new_book.crawl_status
                 }}
             )
+            return True # Return True: change detected and updated
+        
+        return False # Return False: no change
                     
     except Exception as e:
         log.error(f"Error checking book UPC {old_book['upc']}", exc_info=True)
+        return False # Return False: error
 
 
 async def run_daily_change_detection():
@@ -130,8 +140,10 @@ async def run_daily_change_detection():
 
     # Find new books
     new_book_urls = all_current_book_urls - known_books.keys()
+    num_new_books = len(new_book_urls) # Store the count
+    
     if new_book_urls:
-        log.info(f"Found {len(new_book_urls)} new books. Crawling them...")
+        log.info(f"Found {num_new_books} new books. Crawling them...")
         for url in new_book_urls:
             try:
                 response = await spider.fetch_page(url)
@@ -155,8 +167,29 @@ async def run_daily_change_detection():
         check_book_update(spider, db, old_book) 
         for old_book in books_to_check
     ]
-    await asyncio.gather(*update_tasks)
-                            
+    # Capture the results (True/False) from the update tasks
+    update_results = await asyncio.gather(*update_tasks)
+    
+    # Count how many tasks returned True
+    num_updated_books = sum(1 for res in update_results if res is True)
+        
+    if num_new_books > 0 or num_updated_books > 0:
+        log.info(f"Changes detected. Sending email alert...")
+        subject = f"Book Crawler Report - {datetime.utcnow().strftime('%Y-%m-%d')}"
+        
+        body_html = f"<h2>Daily Web Crawler Report</h2>"
+        body_html += f"<p>The daily change detection job has completed successfully.</p>"
+        body_html += f"<ul>"
+        body_html += f"<li><b>New books found:</b> {num_new_books}</li>"
+        body_html += f"<li><b>Existing books updated:</b> {num_updated_books}</li>"
+        body_html += f"</ul>"
+        body_html += f"<p>Check the API's <code>/changes/report</code> endpoint for a detailed list of changes.</p>"
+        
+        # Asynchronously call the email function
+        await send_alert_email(subject, body_html)
+    else:
+        log.info("No changes detected. No email alert will be sent.")
+                                    
     await spider.close()
     db_client.close()
     log.info("Daily change detection job complete.")
