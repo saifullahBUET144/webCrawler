@@ -84,7 +84,7 @@ def _get_fingerprint(data: dict) -> str:
         "price_excl_tax": data.get("price_excl_tax"),
         "availability": data.get("availability"),
         "num_reviews": data.get("num_reviews"),
-        "image_url": str(data.get("image_url")), # cast HttpUrl to string
+        "image_url": str(data.get("image_url")),
         "rating": data.get("rating"),
     }
     canonical_json = json.dumps(
@@ -95,7 +95,7 @@ def _get_fingerprint(data: dict) -> str:
 def _clean_price(price_str: str) -> float:
     try:
         return float(price_str.replace("£", ""))
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, AttributeError):
         return 0.0
 
 def _clean_rating(rating_class: str) -> int:
