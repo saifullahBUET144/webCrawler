@@ -3,8 +3,7 @@ import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from parsel import Selector
 from urllib.parse import urljoin
-from datetime import datetime, timezone # <-- Make sure timezone is imported
-
+from datetime import datetime, timezone
 from utils.config import settings
 from utils.database import get_database
 from utils.email import send_alert_email 
@@ -191,7 +190,6 @@ async def run_daily_change_detection():
         
     if num_new_books > 0 or num_updated_books > 0:
         log.info(f"Changes detected. Sending email alert...")
-        # Using timezone-aware datetime
         subject = f"Book Crawler Report - {datetime.now(timezone.utc).strftime('%Y-%m-%d')}"
         
         body_html = f"<h2>Daily Web Crawler Report</h2>"
