@@ -1,3 +1,4 @@
+# api/routers/changes.py
 import logging
 import pandas as pd
 from io import StringIO
@@ -6,7 +7,7 @@ from fastapi import APIRouter, Query, Depends, Request, HTTPException, status
 from typing import List, Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from starlette.responses import StreamingResponse
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from crawler.parser import ChangeLogEntry
 from ..security import get_api_key
 
@@ -41,11 +42,10 @@ async def get_daily_change_report(
     """
     db: AsyncIOMotorDatabase = request.app.state.db
     
-    naive_now_utc = datetime.utcnow()
+    aware_now_utc = datetime.now(timezone.utc)
+    cutoff_time_dt = aware_now_utc - timedelta(days=1)
     
-    # Calculate the cutoff time - compare datetime objects, not strings
-    cutoff_time_dt = naive_now_utc - timedelta(days=1)
-    query = {"timestamp": {"$gte": cutoff_time_dt}}  # Remove .isoformat() conversion
+    query = {"timestamp": {"$gte": cutoff_time_dt}}
     
     cursor = db.change_log.find(query).sort("timestamp", -1)
     changes = [ChangeLogEntry(**doc) async for doc in cursor]

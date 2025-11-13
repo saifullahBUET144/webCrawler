@@ -44,7 +44,9 @@ async def log_changes(db: AsyncIOMotorDatabase, old_data: dict, new_data: Book):
     check_field("image_url", old_data.get("image_url"), new_data.image_url)
         
     if changes:
-        log_models = [c.model_dump(mode="json") for c in changes]
+        log_models = [
+            c.model_dump(by_alias=True, exclude={'id'}) for c in changes
+        ]
         await db.change_log.insert_many(log_models)
         log.info(f"Logged {len(changes)} changes for UPC {new_data.upc}.")
 
