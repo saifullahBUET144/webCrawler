@@ -3,7 +3,7 @@ import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from parsel import Selector
 from urllib.parse import urljoin
-from datetime import datetime 
+from datetime import datetime, timezone # <-- Make sure timezone is imported
 
 from utils.config import settings
 from utils.database import get_database
@@ -44,9 +44,11 @@ async def log_changes(db: AsyncIOMotorDatabase, old_data: dict, new_data: Book):
     check_field("image_url", old_data.get("image_url"), new_data.image_url)
         
     if changes:
+        # This uses the fix from our previous conversation
         log_models = [
             c.model_dump(by_alias=True, exclude={'id'}) for c in changes
         ]
+        
         await db.change_log.insert_many(log_models)
         log.info(f"Logged {len(changes)} changes for UPC {new_data.upc}.")
 
@@ -158,6 +160,18 @@ async def run_daily_change_detection():
                     )
                     await db.books.insert_one(book_data)
                     log.info(f"Saved new book: {book.name}")
+
+                    # log as a "new book" change
+                    new_book_log = ChangeLogEntry(
+                        book_upc=book.upc,
+                        field_changed="book_status", # Using a special field name
+                        old_value="non-existent",
+                        new_value="added"
+                    )
+                    await db.change_log.insert_one(
+                        new_book_log.model_dump(by_alias=True, exclude={'id'})
+                    )
+
             except Exception as e:
                 log.error(f"Failed to save new book {url}: {e}", exc_info=True)
 
@@ -177,7 +191,8 @@ async def run_daily_change_detection():
         
     if num_new_books > 0 or num_updated_books > 0:
         log.info(f"Changes detected. Sending email alert...")
-        subject = f"Book Crawler Report - {datetime.utcnow().strftime('%Y-%m-%d')}"
+        # Using timezone-aware datetime
+        subject = f"Book Crawler Report - {datetime.now(timezone.utc).strftime('%Y-%m-%d')}"
         
         body_html = f"<h2>Daily Web Crawler Report</h2>"
         body_html += f"<p>The daily change detection job has completed successfully.</p>"
