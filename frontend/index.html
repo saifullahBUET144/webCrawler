@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Crawler API Client</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" referrerpolicy="no-referrer">
+    <!-- Configure Tailwind with custom theme -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'green': '#52b788',
+                        'green-dark': '#40916c',
+                        'green-light': '#b7e4c7',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                },
+            },
+        };
+    </script>
+    <!-- Custom styles -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa;
+        }
+        /* Page Loader */
+        #loader {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+        }
+        .spinner {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid #52b788;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Message Bar */
+        #message-bar {
+            position: fixed;
+            top: 5rem; /* Below header */
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 999;
+            transition: opacity 0.3s, transform 0.3s;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- Global Loader -->
+    <div id="loader" class="hidden">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Global Message Bar -->
+    <div id="message-bar" class="hidden">
+        <div id="message-content" class="px-6 py-3 rounded-md shadow-lg text-white">
+            <!-- Content set by JS -->
+        </div>
+    </div>
+
+    <!-- Header / API Key -->
+    <header class="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <!-- Logo/Title -->
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-book-open-reader text-3xl text-green" aria-hidden="true"></i>
+                    <span class="text-2xl font-bold text-gray-800">Book Crawler</span>
+                </div>
+                
+                <!-- API Settings -->
+                <div class="flex items-center space-x-2">
+                    <input id="api-base-url-input" type="text" placeholder="API Base URL (e.g., http://localhost:8000)" class="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green text-sm w-64">
+                    <input id="api-key-input" type="password" placeholder="Your API Key" class="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green text-sm w-64">
+                    <button id="save-api-key-btn" class="px-4 py-2 bg-green text-white rounded-md shadow-sm hover:bg-green-dark focus:outline-none focus:ring-2 focus:ring-green focus:ring-offset-2 text-sm font-medium">
+                        Save
+                    </button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 sm:px-6 lg:px-8 py-10">
+
+        <!-- === SECTION 1: BOOK LIST === -->
+        <section id="books-section" class="mb-16">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6 border-l-4 border-green pl-4">Explore Books</h2>
+
+            <!-- Filters -->
+            <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <!-- Category -->
+                    <div>
+                        <label for="filter-category" class="block text-sm font-medium text-gray-700">Category</label>
+                        <input type="text" id="filter-category" placeholder="e.g., Music" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green">
+                    </div>
+                    <!-- Min Price -->
+                    <div>
+                        <label for="filter-min-price" class="block text-sm font-medium text-gray-700">Min Price</label>
+                        <input type="number" id="filter-min-price" placeholder="0.00" min="0" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green">
+                    </div>
+                    <!-- Max Price -->
+                    <div>
+                        <label for="filter-max-price" class="block text-sm font-medium text-gray-700">Max Price</label>
+                        <input type="number" id="filter-max-price" placeholder="50.00" min="0" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green">
+                    </div>
+                    <!-- Rating -->
+                    <div>
+                        <label for="filter-rating" class="block text-sm font-medium text-gray-700">Min. Rating</label>
+                        <select id="filter-rating" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green bg-white">
+                            <option value="">Any</option>
+                            <option value="1">★☆☆☆☆</option>
+                            <option value="2">★★☆☆☆</option>
+                            <option value="3">★★★☆☆</option>
+                            <option value="4">★★★★☆</option>
+                            <option value="5">★★★★★</option>
+                        </select>
+                    </div>
+                    <!-- Apply Button -->
+                    <div class="flex items-end">
+                        <button id="apply-filters-btn" class="w-full px-4 py-2 bg-green text-white rounded-md shadow-sm hover:bg-green-dark focus:outline-none focus:ring-2 focus:ring-green focus:ring-offset-2 font-medium">
+                            Apply
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sorting & Pagination -->
+            <div class="flex flex-col sm:flex-row justify-between items-center mb-6">
+                <!-- Sorting & Limit -->
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-2 mb-4 sm:mb-0">
+                    <div class="flex items-center space-x-2">
+                        <label for="sort-by" class="text-sm font-medium text-gray-700">Sort by:</label>
+                        <select id="sort-by" class="block px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green bg-white text-sm">
+                            <option value="rating">Rating</option>
+                            <option value="price_incl_tax">Price</option>
+                            <option value="num_reviews">Reviews</option>
+                        </select>
+                        <select id="sort-order" class="block px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green bg-white text-sm">
+                            <option value="true">Descending</option>
+                            <option value="false">Ascending</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <label for="limit-select" class="text-sm font-medium text-gray-700">Per Page:</label>
+                        <select id="limit-select" class="block px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green bg-white text-sm">
+                            <option value="20">20</option>
+                            <option value="40">40</option>
+                            <option value="60">60</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                </div>
+                <!-- Pagination -->
+                <div class="flex items-center space-x-2">
+                    <button id="prev-page-btn" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green focus:ring-offset-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed">
+                        &larr;
+                    </button>
+                    <span class="text-sm text-gray-700">Page</span>
+                    <input type="number" id="page-input" value="1" min="1" class="w-16 text-center px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green text-sm">
+                    <button id="next-page-btn" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green focus:ring-offset-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed">
+                        &rarr;
+                    </button>
+                </div>
+            </div>
+
+            <!-- Book Grid -->
+            <div id="books-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                <!-- Book cards will be injected here by JS -->
+                <p id="books-grid-placeholder" class="text-gray-500 col-span-full text-center py-10">Loading books...</p>
+            </div>
+        </section>
+
+        <!-- === SECTION 2: BOOK DETAILS === -->
+        <section id="details-section" class="mb-16">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6 border-l-4 border-green pl-4">Find Book by UPC</h2>
+            
+            <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+                <div class="flex space-x-4">
+                    <input type="text" id="upc-input" placeholder="Enter book UPC" class="flex-grow block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green">
+                    <button id="search-upc-btn" class="px-6 py-2 bg-green text-white rounded-md shadow-sm hover:bg-green-dark focus:outline-none focus:ring-2 focus:ring-green focus:ring-offset-2 font-medium">
+                        Search
+                    </button>
+                </div>
+            </div>
+
+            <!-- Book Detail Result -->
+            <div id="book-details-result" class="bg-white rounded-lg shadow-md overflow-hidden min-h-[100px] flex items-center justify-center">
+                 <p class="text-gray-500">Search for a book by its UPC to see details here.</p>
+                <!-- Book detail content will be injected here by JS -->
+            </div>
+        </section>
+
+        <!-- === SECTION 3: REPORTS === -->
+        <section id="reports-section">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6 border-l-4 border-green pl-4">Reports</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Recent Changes -->
+                <div>
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-semibold text-gray-700">Recent Changes</h3>
+                        <button id="refresh-changes-btn" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green text-sm font-medium">
+                            Refresh
+                        </button>
+                    </div>
+                    <div id="recent-changes-result" class="bg-white p-4 rounded-lg shadow-md h-96 overflow-y-auto space-y-3">
+                        <p class="text-gray-500 text-center pt-4">Click 'Refresh' to load recent changes.</p>
+                        <!-- Recent changes content will be injected here by JS -->
+                    </div>
+                </div>
+
+                <!-- Daily Report -->
+                <div>
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-semibold text-gray-700">Daily Report (Last 24h)</h3>
+                        <div class="space-x-2">
+                            <button id="report-json-btn" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green text-sm font-medium">
+                                View JSON
+                            </button>
+                            <button id="report-csv-btn" class="px-4 py-2 bg-green text-white rounded-md shadow-sm hover:bg-green-dark focus:outline-none focus:ring-2 focus:ring-green text-sm font-medium">
+                                Download CSV
+                            </button>
+                        </div>
+                    </div>
+                    <div id="daily-report-result" class="bg-white p-4 rounded-lg shadow-md h-96 overflow-y-auto">
+                        <p class="text-gray-500 text-center pt-4">Click 'View JSON' or 'Download CSV' to get the report.</p>
+                        <!-- Daily report JSON will be injected here by JS -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="text-center py-10 mt-16 border-t border-gray-200">
+        <p class="text-gray-500">FilersKeepers API Client</p>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // === STATE ===
+            let apiBaseUrl = '';
+            let apiKey = '';
+            let currentBookPage = 1;
+            let booksPerPage = 20; // Matches your API default, changed to let
+
+            // === DOM ELEMENTS ===
+            const loader = document.getElementById('loader');
+            const messageBar = document.getElementById('message-bar');
+            const messageContent = document.getElementById('message-content');
+
+            const apiBaseUrlInput = document.getElementById('api-base-url-input');
+            const apiKeyInput = document.getElementById('api-key-input');
+            const saveApiKeyBtn = document.getElementById('save-api-key-btn');
+
+            const booksGrid = document.getElementById('books-grid');
+            const booksGridPlaceholder = document.getElementById('books-grid-placeholder');
+            const prevPageBtn = document.getElementById('prev-page-btn');
+            const nextPageBtn = document.getElementById('next-page-btn');
+            const pageInput = document.getElementById('page-input'); // Changed from pageInfo
+            const limitSelect = document.getElementById('limit-select'); // Added
+            
+            const filterCategory = document.getElementById('filter-category');
+            const filterMinPrice = document.getElementById('filter-min-price');
+            const filterMaxPrice = document.getElementById('filter-max-price');
+            const filterRating = document.getElementById('filter-rating');
+            const sortBy = document.getElementById('sort-by');
+            const sortOrder = document.getElementById('sort-order');
+            const applyFiltersBtn = document.getElementById('apply-filters-btn');
+
+            const upcInput = document.getElementById('upc-input');
+            const searchUpcBtn = document.getElementById('search-upc-btn');
+            const bookDetailsResult = document.getElementById('book-details-result');
+
+            const refreshChangesBtn = document.getElementById('refresh-changes-btn');
+            const recentChangesResult = document.getElementById('recent-changes-result');
+            const reportJsonBtn = document.getElementById('report-json-btn');
+            const reportCsvBtn = document.getElementById('report-csv-btn');
+            const dailyReportResult = document.getElementById('daily-report-result');
+
+            // === CORE FUNCTIONS ===
+
+            const showLoader = () => loader.classList.remove('hidden');
+            const hideLoader = () => loader.classList.add('hidden');
+
+            /**
+             * Shows a message to the user.
+             * @param {string} text - The message text.
+             * @param {boolean} [isError=false] - True for red, false for green.
+             */
+            const showMessage = (text, isError = false) => {
+                messageContent.textContent = text;
+                messageContent.classList.toggle('bg-red-500', isError);
+                messageContent.classList.toggle('bg-green', !isError);
+                messageBar.classList.remove('hidden');
+                messageBar.classList.remove('opacity-0');
+
+                setTimeout(() => {
+                    messageBar.classList.add('opacity-0');
+                    setTimeout(() => messageBar.classList.add('hidden'), 300);
+                }, 3000);
+            };
+
+            /**
+             * Wrapper for fetch to handle API key, loading, and errors.
+             * @param {string} endpoint - The API endpoint (e.g., "/books").
+             * @param {object} [options={}] - Fetch options.
+             */
+            const safeFetch = async (endpoint, options = {}) => {
+                if (!apiKey || !apiBaseUrl) {
+                    showMessage('API Base URL and Key must be set.', true);
+                    throw new Error('API key or Base URL not set.');
+                }
+
+                showLoader();
+                
+                const defaultHeaders = {
+                    'Content-Type': 'application/json',
+                    'X-API-Key': apiKey,
+                };
+
+                const config = {
+                    ...options,
+                    headers: {
+                        ...defaultHeaders,
+                        ...options.headers,
+                    },
+                };
+
+                try {
+                    const response = await fetch(`${apiBaseUrl}${endpoint}`, config);
+
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+                        throw new Error(errorData.detail || `Error: ${response.status}`);
+                    }
+
+                    // Handle different content types
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        return await response.json();
+                    }
+                    if (contentType && contentType.includes('text/csv')) {
+                        return await response.text();
+                    }
+                    return response; // Return response for other types if needed
+
+                } catch (error) {
+                    showMessage(error.message, true);
+                    throw error; // Re-throw to stop further execution in the calling function
+                } finally {
+                    hideLoader();
+                }
+            };
+
+            // === API KEY & CONFIG ===
+
+            const saveApiConfig = () => {
+                apiBaseUrl = apiBaseUrlInput.value.trim();
+                apiKey = apiKeyInput.value.trim();
+
+                if (apiBaseUrl) {
+                    localStorage.setItem('fk_api_base_url', apiBaseUrl);
+                }
+                if (apiKey) {
+                    localStorage.setItem('fk_api_key', apiKey);
+                }
+                
+                showMessage('Configuration saved.', false);
+                // After saving, refresh the book list
+                fetchBooks();
+            };
+
+            const loadApiConfig = () => {
+                const storedBaseUrl = localStorage.getItem('fk_api_base_url');
+                const storedApiKey = localStorage.getItem('fk_api_key');
+
+                if (storedBaseUrl) {
+                    apiBaseUrl = storedBaseUrl;
+                    apiBaseUrlInput.value = storedBaseUrl;
+                }
+                if (storedApiKey) {
+                    apiKey = storedApiKey;
+                    apiKeyInput.value = storedApiKey;
+                }
+            };
+
+            // === BOOK LIST & PAGINATION ===
+
+            /**
+             * Fetches and renders the list of books based on filters.
+             */
+            const fetchBooks = async () => {
+                booksGrid.innerHTML = ''; // Clear existing
+                booksGridPlaceholder.classList.remove('hidden');
+                booksGridPlaceholder.textContent = 'Loading books...';
+                
+                // Update state from UI
+                booksPerPage = parseInt(limitSelect.value, 10);
+                currentBookPage = parseInt(pageInput.value, 10) || 1;
+                if (currentBookPage < 1) {
+                    currentBookPage = 1;
+                    pageInput.value = 1;
+                }
+
+                const params = new URLSearchParams({
+                    page: currentBookPage,
+                    limit: booksPerPage,
+                    sort_by: sortBy.value,
+                    sort_desc: sortOrder.value,
+                });
+
+                if (filterCategory.value) params.append('category', filterCategory.value);
+                if (filterMinPrice.value) params.append('min_price', filterMinPrice.value);
+                if (filterMaxPrice.value) params.append('max_price', filterMaxPrice.value);
+                if (filterRating.value) params.append('rating', filterRating.value);
+
+                try {
+                    const books = await safeFetch(`/books/?${params.toString()}`);
+                    renderBooks(books);
+                    updatePagination(books.length);
+                } catch (error) {
+                    console.error('Failed to fetch books:', error);
+                    booksGridPlaceholder.textContent = 'Failed to load books. Check API key and URL.';
+                }
+            };
+
+            /**
+             * Renders book cards into the grid.
+             * @param {Array} books - List of book objects.
+             */
+            const renderBooks = (books) => {
+                booksGrid.innerHTML = ''; // Clear
+                if (books.length === 0) {
+                    booksGridPlaceholder.classList.remove('hidden');
+                    booksGridPlaceholder.textContent = 'No books found matching your criteria.';
+                    return;
+                }
+                
+                booksGridPlaceholder.classList.add('hidden');
+
+                const starIcon = (filled) => `
+                    <svg class="w-4 h-4 ${filled ? 'text-yellow-400' : 'text-gray-300'}" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.846 5.673a.97.97 0 00.922.67h5.968c.969 0 1.371 1.24.588 1.81l-4.832 3.51a.972.972 0 00-.352 1.082l1.846 5.673c.3 9.21-.755 1.688-1.54 1.18l-4.832-3.51a.972.972 0 00-1.136 0L4.36 18.52c-.784.508-1.84-.259-1.54-1.18l1.846-5.673a.972.972 0 00-.352-1.082L.482 11.08c-.783-.57-.38-1.81.588-1.81h5.968a.97.97 0 00.922-.67l1.846-5.673z" />
+                    </svg>
+                `;
+
+                books.forEach(book => {
+                    const card = document.createElement('div');
+                    card.className = 'bg-white rounded-lg shadow-md overflow-hidden transition-all duration-300 hover:shadow-xl cursor-pointer';
+                    card.innerHTML = `
+                        <div class="h-48 bg-gray-200 flex items-center justify-center">
+                            <img src="${book.image_url}" alt="${book.name}" class="h-full w-full object-contain p-2" onerror="this.src='https://placehold.co/300x400/f8f9fa/gray?text=No+Image'; this.objectFit='contain';">
+                        </div>
+                        <div class="p-4">
+                            <h3 class="text-md font-semibold text-gray-800 truncate" title="${book.name}">${book.name}</h3>
+                            <p class="text-sm text-gray-500 mb-2">${book.category}</p>
+                            <div class="flex items-center mb-2">
+                                ${[...Array(5)].map((_, i) => starIcon(i < book.rating)).join('')}
+                                <span class="text-xs text-gray-400 ml-1">(${book.num_reviews} reviews)</span>
+                            </div>
+                            <p class="text-lg font-bold text-green">£${book.price_incl_tax.toFixed(2)}</p>
+                        </div>
+                    `;
+                    // Add click event to scroll to details and populate UPC
+                    card.addEventListener('click', () => {
+                        upcInput.value = book.upc;
+                        detailsSection.scrollIntoView({ behavior: 'smooth' });
+                        fetchBookByUpc(); // Optionally auto-search on click
+                    });
+                    booksGrid.appendChild(card);
+                });
+            };
+
+            /**
+             * Updates pagination buttons and info.
+             * @param {number} count - Number of items on the current page.
+             */
+            const updatePagination = (count) => {
+                pageInput.value = currentBookPage; // Changed from pageInfo
+                prevPageBtn.disabled = currentBookPage === 1;
+                nextPageBtn.disabled = count < booksPerPage;
+            };
+
+            // === BOOK DETAILS ===
+
+            /**
+             * Fetches and renders details for a single book UPC.
+             */
+            const fetchBookByUpc = async () => {
+                const upc = upcInput.value.trim();
+                if (!upc) {
+                    showMessage('Please enter a UPC.', true);
+                    return;
+                }
+
+                bookDetailsResult.innerHTML = '<p class="text-gray-500">Loading details...</p>';
+
+                try {
+                    const book = await safeFetch(`/books/${upc}`);
+                    renderBookDetails(book);
+                } catch (error) {
+                    console.error('Failed to fetch book details:', error);
+                    bookDetailsResult.innerHTML = `<p class="text-red-500 p-6">Book with UPC "${upc}" not found.</p>`;
+                }
+            };
+
+            /**
+             * Renders the full details of a book.
+             * @param {object} book - The book object.
+             */
+            const renderBookDetails = (book) => {
+                const detailItem = (label, value) => `
+                    <div class="py-3 sm:grid sm:grid-cols-3 sm:gap-4">
+                        <dt class="text-sm font-medium text-gray-500">${label}</dt>
+                        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">${value}</dd>
+                    </div>
+                `;
+
+                bookDetailsResult.innerHTML = `
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 p-6">
+                        <div class="md:col-span-1">
+                            <img src="${book.image_url}" alt="${book.name}" class="rounded-lg shadow-md w-full" onerror="this.src='https://placehold.co/400x500/f8f9fa/gray?text=No+Image';">
+                        </div>
+                        <div class="md:col-span-2">
+                            <h3 class="text-2xl font-bold text-gray-800 mb-2">${book.name}</h3>
+                            <p class="text-lg text-green font-semibold mb-4">£${book.price_incl_tax.toFixed(2)}</p>
+                            <p class="text-gray-600 mb-6">${book.description || 'No description available.'}</p>
+
+                            <dl class="divide-y divide-gray-200">
+                                ${detailItem('UPC', book.upc)}
+                                ${detailItem('Category', `<span class="px-2 py-0.5 bg-green-light text-green-dark text-xs font-medium rounded-full">${book.category}</span>`)}
+                                ${detailItem('Availability', book.availability)}
+                                ${detailItem('Rating', `${'★'.repeat(book.rating)}${'☆'.repeat(5 - book.rating)} (${book.num_reviews} reviews)`)}
+                                ${detailItem('Price (excl. tax)', `£${book.price_excl_tax.toFixed(2)}`)}
+                                ${detailItem('Source URL', `<a href="${book.source_url}" target="_blank" class="text-blue-600 hover:underline">View Source</a>`)}
+                            </dl>
+                        </div>
+                    </div>
+                `;
+            };
+
+            // === REPORTS ===
+
+            /**
+             * Fetches and renders recent changes.
+             */
+            const fetchRecentChanges = async () => {
+                recentChangesResult.innerHTML = '<p class="text-gray-500 text-center pt-4">Loading recent changes...</p>';
+                try {
+                    const changes = await safeFetch(`/changes/?limit=50`);
+                    renderRecentChanges(changes);
+                } catch (error) {
+                    console.error('Failed to fetch recent changes:', error);
+                    recentChangesResult.innerHTML = '<p class="text-red-500 text-center pt-4">Failed to load changes.</p>';
+                }
+            };
+
+            /**
+             * Renders the list of recent changes.
+             * @param {Array} changes - List of change log objects.
+             */
+            const renderRecentChanges = (changes) => {
+                if (changes.length === 0) {
+                    recentChangesResult.innerHTML = '<p class="text-gray-500 text-center pt-4">No recent changes found.</p>';
+                    return;
+                }
+                recentChangesResult.innerHTML = changes.map(change => `
+                    <div class="p-3 bg-gray-50 rounded-md border border-gray-200">
+                        <p class="text-sm font-medium text-gray-800">
+                            <span class="font-bold text-green">${change.field_changed}</span> changed for UPC: 
+                            <span class="font-mono text-xs">${change.book_upc}</span>
+                        </p>
+                        <div class="flex justify-between text-xs text-gray-600 mt-1">
+                            <p><span class="text-red-500">Old:</span> ${change.old_value.substring(0, 50)}...</p>
+                            <p><span class="text-green-500">New:</span> ${change.new_value.substring(0, 50)}...</p>
+                        </div>
+                        <p class="text-xs text-gray-400 text-right mt-1">${new Date(change.timestamp).toLocaleString()}</p>
+                    </div>
+                `).join('');
+            };
+            
+            /**
+             * Fetches daily report in specified format.
+             * @param {'json' | 'csv'} format
+             */
+            const fetchDailyReport = async (format) => {
+                dailyReportResult.innerHTML = `<p class="text-gray-500 text-center pt-4">Loading ${format.toUpperCase()} report...</p>`;
+                try {
+                    const reportData = await safeFetch(`/changes/report?format=${format}`);
+                    
+                    if (format === 'json') {
+                        if (reportData.length === 0) {
+                            dailyReportResult.innerHTML = '<p class="text-gray-500 text-center pt-4">No changes found in the last 24 hours.</p>';
+                            return;
+                        }
+                        dailyReportResult.innerHTML = `
+                            <pre class="text-xs p-2 bg-gray-900 text-white rounded-md"><code>${JSON.stringify(reportData, null, 2)}</code></pre>
+                        `;
+                    } else if (format === 'csv') {
+                        dailyReportResult.innerHTML = '<p class="text-gray-500 text-center pt-4">Report downloaded.</p>';
+                        downloadCSV(reportData, 'daily_change_report.csv');
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch daily report:', error);
+                    dailyReportResult.innerHTML = `<p class="text-red-500 text-center pt-4">Failed to load ${format.toUpperCase()} report.</p>`;
+                }
+            };
+
+            /**
+             * Triggers a browser download for CSV content.
+             * @param {string} csvText - The CSV content.
+             * @param {string} filename - The desired filename.
+             */
+            const downloadCSV = (csvText, filename) => {
+                const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', filename);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
+
+            // === EVENT LISTENERS ===
+            saveApiKeyBtn.addEventListener('click', saveApiConfig);
+            applyFiltersBtn.addEventListener('click', () => {
+                currentBookPage = 1; // Reset to page 1 on filter
+                pageInput.value = 1; // Also reset the input field
+                fetchBooks();
+            });
+            sortBy.addEventListener('change', () => fetchBooks());
+            sortOrder.addEventListener('change', () => fetchBooks());
+
+            prevPageBtn.addEventListener('click', () => {
+                if (currentBookPage > 1) {
+                    currentBookPage--;
+                    pageInput.value = currentBookPage; // Update input
+                    fetchBooks();
+                }
+            });
+            nextPageBtn.addEventListener('click', () => {
+                currentBookPage++;
+                pageInput.value = currentBookPage; // Update input
+                fetchBooks();
+            });
+
+            // Added listeners for new controls
+            limitSelect.addEventListener('change', () => {
+                currentBookPage = 1; // Reset to page 1
+                pageInput.value = 1;
+                fetchBooks();
+            });
+
+            pageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    currentBookPage = parseInt(pageInput.value, 10) || 1;
+                    if (currentBookPage < 1) currentBookPage = 1;
+                    pageInput.value = currentBookPage;
+                    fetchBooks();
+                }
+            });
+
+            pageInput.addEventListener('change', () => {
+                currentBookPage = parseInt(pageInput.value, 10) || 1;
+                if (currentBookPage < 1) currentBookPage = 1;
+                pageInput.value = currentBookPage;
+                fetchBooks();
+            });
+
+            searchUpcBtn.addEventListener('click', fetchBookByUpc);
+            upcInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') fetchBookByUpc();
+            });
+
+            refreshChangesBtn.addEventListener('click', fetchRecentChanges);
+            reportJsonBtn.addEventListener('click', () => fetchDailyReport('json'));
+            reportCsvBtn.addEventListener('click', () => fetchDailyReport('csv'));
+
+
+            // === INITIALIZATION ===
+            loadApiConfig();
+            if (apiKey && apiBaseUrl) {
+                fetchBooks();
+            } else {
+                booksGridPlaceholder.textContent = 'Please enter your API Base URL and Key above to load books.';
+            }
+        });
+    </script>
+</body>
+</html>

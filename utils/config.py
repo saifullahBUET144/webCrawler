@@ -10,6 +10,11 @@ class Settings(BaseSettings):
     
     LOG_LEVEL: str = "INFO"
 
+    # Email Settings
+    SENDGRID_API_KEY: str = ""
+    ALERT_SENDER_EMAIL: str = ""
+    ALERT_RECIPIENT_EMAIL: str = ""
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

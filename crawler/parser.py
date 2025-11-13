@@ -6,7 +6,7 @@ from pydantic import (
     BeforeValidator
 )
 from typing import Optional, List, Annotated
-from datetime import datetime
+from datetime import datetime, timezone
 from parsel import Selector
 from urllib.parse import urljoin
 from bson import ObjectId
@@ -39,7 +39,9 @@ class Book(BaseModel):
     crawl_status: str
 
     # Metadata
-    crawl_timestamp: datetime = Field(default_factory=datetime.utcnow)
+    crawl_timestamp: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
     data_fingerprint: str  
     raw_html_snapshot: str = ""
 
@@ -60,7 +62,9 @@ class Book(BaseModel):
 class ChangeLogEntry(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None)
     book_upc: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
     field_changed: str
     old_value: str
     new_value: str

@@ -490,9 +490,12 @@ class TestSchedulerIntegration:
         assert book is not None
         assert book["name"] == "Test Book"
     
+
     @pytest.mark.asyncio
-    async def test_scheduler_updates_changed_book(self, test_db, httpx_mock: HTTPXMock):
-        """Test that scheduler updates books that have changed."""
+    async def test_scheduler_updates_changed_book(self, test_db, httpx_mock: HTTPXMock, mocker):
+        """Test that scheduler updates books and sends email."""
+        mock_send_alert = mocker.patch("scheduler.tasks.send_alert_email")
+        
         # Setup: Insert original book
         from crawler.parser import parse_book_page
         original_book = parse_book_page(
@@ -527,6 +530,58 @@ class TestSchedulerIntegration:
         # Verify change was logged
         changes = await test_db.change_log.find({"book_upc": "test-upc-123"}).to_list(None)
         assert len(changes) > 0
+        
+        # Verify email was sent
+        mock_send_alert.assert_called_once()
+        
+        # Check the content of the email
+        call_args = mock_send_alert.call_args[0]
+        email_body = call_args[1] # [0] is subject, [1] is body
+        assert "Existing books updated:</b> 1" in email_body
+        assert "New books found:</b> 0" in email_body
+
+    @pytest.mark.asyncio
+    async def test_scheduler_sends_no_email_on_no_changes(self, test_db, httpx_mock: HTTPXMock, mocker):
+        """Test that scheduler does NOT send email when no changes are found."""
+        mock_send_alert = mocker.patch("scheduler.tasks.send_alert_email")
+        
+        # Setup: Insert original book
+        from crawler.parser import parse_book_page
+        original_book = parse_book_page(
+            BOOK_HTML_V1,
+            "https://books.toscrape.com/catalogue/test-book_001/index.html"
+        )
+        await test_db.books.insert_one(
+            original_book.model_dump(mode="json", by_alias=True, exclude={'id'})
+        )
+        
+        # Mock list page
+        httpx_mock.add_response(
+            url="https://books.toscrape.com/index.html",
+            html=LIST_PAGE_HTML,
+            status_code=200
+        )
+        
+        # Mock book detail with NO change
+        httpx_mock.add_response(
+            url="https://books.toscrape.com/catalogue/test-book_001/index.html",
+            html=BOOK_HTML_V1, # Return the *same* HTML
+            status_code=200
+        )
+        
+        # Run change detection
+        await run_daily_change_detection()
+        
+        # Verify book was NOT updated
+        book = await test_db.books.find_one({"upc": "test-upc-123"})
+        assert book["price_incl_tax"] == 19.99 # Unchanged
+        
+        # Verify no change was logged
+        changes = await test_db.change_log.find({"book_upc": "test-upc-123"}).to_list(None)
+        assert len(changes) == 0
+        
+        # Verify email was NOT sent
+        mock_send_alert.assert_not_called()
 
 
 class TestSchedulerEdgeCases:

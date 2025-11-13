@@ -11,7 +11,7 @@ async def main():
     log.info("Starting scheduler service...")
     scheduler = AsyncIOScheduler()
     
-    # Schedule the job to run every day at 3:00 AM
+    # Schedule the job to run every day at a specific time (24-hr format)
     scheduler.add_job(
         run_daily_change_detection,
         trigger=CronTrigger(hour=3, minute=0),
