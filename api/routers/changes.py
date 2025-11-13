@@ -43,10 +43,9 @@ async def get_daily_change_report(
     
     naive_now_utc = datetime.utcnow()
     
-    # Calculate the cutoff time and check
-    cutoff_time_dt = naive_now_utc - timedelta(days=1) 
-    cutoff_time_str = cutoff_time_dt.isoformat()
-    query = {"timestamp": {"$gte": cutoff_time_str}}
+    # Calculate the cutoff time - compare datetime objects, not strings
+    cutoff_time_dt = naive_now_utc - timedelta(days=1)
+    query = {"timestamp": {"$gte": cutoff_time_dt}}  # Remove .isoformat() conversion
     
     cursor = db.change_log.find(query).sort("timestamp", -1)
     changes = [ChangeLogEntry(**doc) async for doc in cursor]

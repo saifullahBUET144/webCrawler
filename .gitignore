@@ -4,4 +4,24 @@ venv/
 .venv/
 .env
 *.log
+*.log
+app.log
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+coverage.xml
+*.cover
+*.db
+*.sqlite
+*.sqlite3
+
+# macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini

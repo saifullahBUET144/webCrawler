@@ -9,15 +9,15 @@ log = logging.getLogger(__name__)
 # Define the header
 api_key_header = APIKeyHeader(name="X-API-Key")
 
-# Load the valid hashed keys from settings
-VALID_HASHES = settings.VALID_API_KEY_HASHES.split(',')
-
 async def get_api_key(
     key: str = Security(api_key_header)
 ) -> str:
     """
     Dependency to verify the X-API-Key using bcrypt directly.
     """
+    # Load the valid hashed keys from settings
+    VALID_HASHES = settings.VALID_API_KEY_HASHES.split(',')
+
     try:
         # Convert the incoming plain-text key to bytes
         key_bytes = key.encode('utf-8')
